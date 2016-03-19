@@ -796,6 +796,31 @@ MFRC522::StatusCode MFRC522::PICC_HaltA() {
 	return result;
 } // End PICC_HaltA()
 
+/**
+ * Request for Answer To Select (RATS)
+ * ISO 14443-4 Section 5.1 Request for answer to select
+ * FSDI - the maximum frame size supported by the PCD for communication with the PICC
+ * CID -  the logical number of the addressed PICC
+ *
+ * on success ATS will be stored in backData 
+ *
+ * @return STATUS_OK on success, STATUS_??? otherwise.
+ */
+MFRC522::StatusCode MFRC522::PICC_RATS(byte fsdi, byte cid, byte *backData, byte *backLen) {
+    MFRC522::StatusCode result;
+    byte buffer[4];
+
+    // Build command buffer
+    buffer[0] = PICC_CMD_RATS;
+    buffer[1] = (fsdi & 0xF0) | (cid & 0x0F); // FSDI: The High Nibble.  CID: The Low Nibble
+    // Calculate CRC_A
+    result = PCD_CalculateCRC(buffer, 2, &buffer[2]);
+    if (result != STATUS_OK) {
+        return result;
+    }
+
+    return PCD_TransceiveData(buffer, 4, backData, backLen, NULL);    
+} // End PICC_RATS()
 
 /////////////////////////////////////////////////////////////////////////////////////
 // Functions for communicating with MIFARE PICCs
@@ -1364,6 +1389,27 @@ void MFRC522::PICC_DumpDetailsToSerial(Uid *uid	///< Pointer to Uid struct retur
 	PICC_Type piccType = PICC_GetType(uid->sak);
 	Serial.print(F("PICC type: "));
 	Serial.println(PICC_GetTypeName(piccType));
+} // End PICC_DumpDetailsToSerial()
+
+/**
+ * Dumps card's ATS(Answer to Select) 
+ */
+void MFRC522::PICC_DumpATSToSerial(byte *ats, byte atsLen) {
+    //
+    Serial.print(F("Card ATS(RATS response):"));
+    for (byte i = 0; i < atsLen; i++) {
+        if (ats[i] < 0x10) 
+            Serial.print(F(" 0"));
+        else
+            Serial.print(F(" "));
+        Serial.print(ats[i], HEX);
+    }
+    Serial.println();
+
+    //
+    Serial.print(F("ATS Len: "));
+    Serial.print(ats[0]);
+    Serial.println(F(", (sometimes the ATS real lenght < ATS data len, just ignore the last few bytes)"));
 } // End PICC_DumpDetailsToSerial()
 
 /**

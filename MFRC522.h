@@ -249,6 +249,10 @@ public:
 		PICC_CMD_SEL_CL2		= 0x95,		// Anti collision/Select, Cascade Level 2
 		PICC_CMD_SEL_CL3		= 0x97,		// Anti collision/Select, Cascade Level 3
 		PICC_CMD_HLTA			= 0x50,		// HaLT command, Type A. Instructs an ACTIVE PICC to go to state HALT.
+
+        // The commands used by the PCD to manage communication with several PICCs (ISO 14443-4)
+        PICC_CMD_RATS           = 0xE0,     // Request for answer to select. 
+
 		// The commands used for MIFARE Classic (from http://www.mouser.com/ds/2/302/MF1S503x-89574.pdf, Section 9)
 		// Use PCD_MFAuthent to authenticate access to a sector, then use these commands to read/write/modify the blocks on the sector.
 		// The read/write commands can also be used for MIFARE Ultralight.
@@ -358,6 +362,7 @@ public:
 	StatusCode PICC_REQA_or_WUPA(byte command, byte *bufferATQA, byte *bufferSize);
 	StatusCode PICC_Select(Uid *uid, byte validBits = 0);
 	StatusCode PICC_HaltA();
+    StatusCode PICC_RATS(byte fsdi, byte cid, byte *backData, byte *backLen);
 	
 	/////////////////////////////////////////////////////////////////////////////////////
 	// Functions for communicating with MIFARE PICCs
@@ -391,6 +396,7 @@ public:
 	void PCD_DumpVersionToSerial();
 	void PICC_DumpToSerial(Uid *uid);
 	void PICC_DumpDetailsToSerial(Uid *uid);
+    void PICC_DumpATSToSerial(byte *ats, byte atsLen);
 	void PICC_DumpMifareClassicToSerial(Uid *uid, PICC_Type piccType, MIFARE_Key *key);
 	void PICC_DumpMifareClassicSectorToSerial(Uid *uid, MIFARE_Key *key, byte sector);
 	void PICC_DumpMifareUltralightToSerial();
