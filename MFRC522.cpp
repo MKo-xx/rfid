@@ -1174,6 +1174,48 @@ MFRC522::StatusCode MFRC522::PCD_NTAG216_AUTH(byte* passWord, byte pACK[]) //Aut
 } // End PCD_NTAG216_AUTH()
 
 
+/**
+ * Get version for NTAG213/215/216.
+ * 
+ * Tested on NTAG213.
+ * 
+ * @param[out]   version   struct with version data.
+ *
+ * @return STATUS_OK on success, STATUS_??? otherwise.
+ */
+MFRC522::StatusCode MFRC522::NTAG_GetVersion(NTAG_Version* version) {
+    MFRC522::StatusCode result;
+    byte cmdBuffer[3];
+
+    cmdBuffer[0] = PICC_CMD_NTAG_GET_VERSION;
+
+    result = PCD_CalculateCRC(cmdBuffer, 1, &cmdBuffer[1]);
+    if (result != STATUS_OK) {
+        return result;
+    }
+
+    byte resultBuffer[10]; 
+    byte resultBufferLen = 10;
+    result = PCD_TransceiveData(cmdBuffer, 3, resultBuffer, &resultBufferLen, NULL);
+    if (result != STATUS_OK) {
+        return result;
+    }
+
+    if (resultBufferLen != 10) {
+        return STATUS_ERROR;
+    }
+
+    version->vendorId = resultBuffer[1];
+    version->productType = resultBuffer[2];
+    version->productSubType = resultBuffer[3];
+    version->productVersionMajor = resultBuffer[4];
+    version->productVersionMinor = resultBuffer[5];
+    version->storageSize = resultBuffer[6];
+    version->protocolType = resultBuffer[7];
+
+    return STATUS_OK; 
+} // End NTAG_GetVersion()
+
 /////////////////////////////////////////////////////////////////////////////////////
 // Support functions
 /////////////////////////////////////////////////////////////////////////////////////
@@ -1642,6 +1684,80 @@ void MFRC522::PICC_DumpMifareUltralightToSerial() {
 		}
 	}
 } // End PICC_DumpMifareUltralightToSerial()
+
+/**
+ * Dumps NTAG version info
+ */
+void MFRC522::PICC_DumpNTAGVersionToSerial(NTAG_Version* version) {
+    Serial.println(F("NTAG"));
+
+    Serial.print(F("Vendor ID: ")); 
+    switch (version->vendorId) {
+        case 0x04:
+            Serial.println(F("NXP(04h)"));
+            break; 
+        default:
+            Serial.print(F("Unknown "));
+            Serial.println(version->vendorId);
+            break;
+    }
+
+    Serial.print(F("Product Type: "));
+    switch (version->productType) {
+        case 0x04:
+            Serial.println(F("NTAG(04h)")); 
+            break;
+        default:
+            Serial.print(F("Unknown ")); 
+            Serial.println(version->productType);
+            break;
+    }
+
+    Serial.print(F("Product Subtype: "));
+    switch (version->productSubType) {
+        case 0x02:
+            Serial.println(F("50pF(02h)"));
+            break;
+        default:
+            Serial.print(F("Unknown "));
+            Serial.println(version->productSubType);
+            break;
+    }
+
+    Serial.print(F("Product Version Major: "));
+    Serial.println(version->productVersionMajor);
+
+    Serial.print(F("Product Version Minor: "));
+    Serial.println(version->productVersionMinor);
+
+    Serial.print(F("Storage Size: "));
+    switch (version->storageSize) {
+        case 0x0F:
+            Serial.println(F("144 bytes(0Fh)"));
+            break;
+        case 0x11:
+            Serial.println(F("504 bytes(11h)"));
+            break;
+        case 0x13:
+            Serial.println(F("888 bytes(13h)"));
+            break;
+        default:
+            Serial.print(F("Unknown "));
+            Serial.println(version->storageSize);
+            break;
+    }
+
+    Serial.print(F("Protocol Type: "));
+    switch (version->protocolType) {
+        case 0x03:
+            Serial.println(F("ISO/IEC 14443-3 compliant"));
+            break;
+        default:
+            Serial.print(F("Unknown "));
+            Serial.println(version->protocolType);
+            break;
+    }
+} // End PICC_DumpNTAGVersionToSerial()
 
 /**
  * Calculates the bit pattern needed for the specified access bits. In the [C1 C2 C3] tuples C1 is MSB (=4) and C3 is LSB (=1).

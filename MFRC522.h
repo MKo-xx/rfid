@@ -266,9 +266,12 @@ public:
 		PICC_CMD_MF_TRANSFER	= 0xB0,		// Writes the contents of the internal data register to a block.
 		// The commands used for MIFARE Ultralight (from http://www.nxp.com/documents/data_sheet/MF0ICU1.pdf, Section 8.6)
 		// The PICC_CMD_MF_READ and PICC_CMD_MF_WRITE can also be used for MIFARE Ultralight.
-		PICC_CMD_UL_WRITE		= 0xA2		// Writes one 4 byte page to the PICC.
+		PICC_CMD_UL_WRITE		= 0xA2,		// Writes one 4 byte page to the PICC.
+
+        // NTAG commands
+        PICC_CMD_NTAG_GET_VERSION = 0x60   // Retrieve information on the NTAG family
 	};
-	
+
 	// MIFARE constants that does not fit anywhere else
 	enum MIFARE_Misc {
 		MF_ACK					= 0xA,		// The MIFARE Classic uses a 4 bit ACK/NAK. Any other value than 0xA is NAK.
@@ -315,7 +318,17 @@ public:
 	typedef struct {
 		byte		keyByte[MF_KEY_SIZE];
 	} MIFARE_Key;
-	
+
+    typedef struct {
+        byte vendorId;
+        byte productType;
+        byte productSubType;
+        byte productVersionMajor;
+        byte productVersionMinor;
+        byte storageSize;
+        byte protocolType;
+    } NTAG_Version;
+
 	// Member variables
 	Uid uid;								// Used by PICC_ReadCardSerial().
 	
@@ -379,6 +392,11 @@ public:
 	StatusCode MIFARE_GetValue(byte blockAddr, long *value);
 	StatusCode MIFARE_SetValue(byte blockAddr, long value);
 	StatusCode PCD_NTAG216_AUTH(byte *passWord, byte pACK[]);
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // Functions for communicating with NTAG PICCs
+    /////////////////////////////////////////////////////////////////////////////////////
+    StatusCode NTAG_GetVersion(NTAG_Version* version);
 	
 	/////////////////////////////////////////////////////////////////////////////////////
 	// Support functions
@@ -400,7 +418,8 @@ public:
 	void PICC_DumpMifareClassicToSerial(Uid *uid, PICC_Type piccType, MIFARE_Key *key);
 	void PICC_DumpMifareClassicSectorToSerial(Uid *uid, MIFARE_Key *key, byte sector);
 	void PICC_DumpMifareUltralightToSerial();
-	
+    void PICC_DumpNTAGVersionToSerial(NTAG_Version* version);
+
 	// Advanced functions for MIFARE
 	void MIFARE_SetAccessBits(byte *accessBitBuffer, byte g0, byte g1, byte g2, byte g3);
 	bool MIFARE_OpenUidBackdoor(bool logErrors);
