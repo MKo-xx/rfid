@@ -1282,7 +1282,24 @@ MFRC522::StatusCode MFRC522::NTAG_21x_FastRead(byte startAddr, byte endAddr, byt
  * @param[out]  value   - counter value
 */
 MFRC522::StatusCode MFRC522::NTAG_21x_Write(byte address, byte *buffer) {
+	//
+    MFRC522::StatusCode result;
+    byte cmdBuffer[8];
 
+    cmdBuffer[0] = PICC_CMD_NTAG_21x_WRITE;
+    cmdBuffer[1] = address;
+    memcpy(&cmdBuffer[2], buffer, 4);
+    result = PCD_CalculateCRC(cmdBuffer, 6, &cmdBuffer[6]);
+    if (result != STATUS_OK) {
+        return result;
+    }
+
+    result = PCD_TransceiveData(cmdBuffer, 8, NULL, NULL, NULL);
+    if (result != STATUS_OK) {
+        return result;
+    }
+
+    return STATUS_OK;
 } // End NTAG_21x_Write() 
 
 /**
