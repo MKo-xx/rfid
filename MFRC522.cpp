@@ -1174,20 +1174,22 @@ MFRC522::StatusCode MFRC522::PCD_NTAG216_AUTH(byte* passWord, byte pACK[]) //Aut
 } // End PCD_NTAG216_AUTH()
 
 
+/////////////////////////////////////////////////////////////////////////////////////
+// Functions for communicating with NTAG 21x PICCs
+/////////////////////////////////////////////////////////////////////////////////////
+
 /**
- * Get version for NTAG213/215/216.
- * 
- * Tested on NTAG213.
+ * Get version for NTAG21x.
  * 
  * @param[out]   version   struct with version data.
  *
  * @return STATUS_OK on success, STATUS_??? otherwise.
  */
-MFRC522::StatusCode MFRC522::NTAG_GetVersion(NTAG_Version* version) {
+MFRC522::StatusCode MFRC522::NTAG_21x_GetVersion(NTAG_21x_Version* version) {
     MFRC522::StatusCode result;
     byte cmdBuffer[3];
 
-    cmdBuffer[0] = PICC_CMD_NTAG_GET_VERSION;
+    cmdBuffer[0] = PICC_CMD_NTAG_21x_GET_VERSION;
 
     result = PCD_CalculateCRC(cmdBuffer, 1, &cmdBuffer[1]);
     if (result != STATUS_OK) {
@@ -1214,7 +1216,110 @@ MFRC522::StatusCode MFRC522::NTAG_GetVersion(NTAG_Version* version) {
     version->protocolType = resultBuffer[7];
 
     return STATUS_OK; 
-} // End NTAG_GetVersion()
+} // End NTAG_21x_GetVersion()
+
+/**
+ * READ for NTAG21x.
+ * 
+ * Note: just a wrapper over MIFARE_Read
+ *
+ * @param[in]      blockAddr   ?
+ * @param[out]     buffer      - the buffer to store signature
+ * @param[in/out]  bufferSize  - Buffer size, at least 32 byte
+ *  
+ * @return STATUS_OK on success, STATUS_??? otherwise.
+ */
+MFRC522::StatusCode MFRC522::NTAG_21x_Read(byte blockAddr, byte *buffer, byte *bufferSize) {
+    return MIFARE_Read(blockAddr, buffer, bufferSize);
+} // End NTAG_21x_Read()
+
+/**
+ * FAST_READ for NTAG21x.
+ * 
+ * Note: just a wrapper over MIFARE_Read
+ *
+ * @param[in]      blockAddr   ?
+ * @param[out]     buffer      - the buffer to store signature
+ * @param[in/out]  bufferSize  - Buffer size, at least 32 byte
+ *  
+ * @return STATUS_OK on success, STATUS_??? otherwise.
+ */
+MFRC522::StatusCode MFRC522::NTAG_21x_FastRead(byte startAddr, byte endAddr, byte *buffer, byte *bufferSize) {
+} // End NTAG_21x_FastRead()
+
+/**
+ * COMPATIBILITY_WRITE for NTAG21x.
+ * 
+ * @param[in]   address - NFC counter address
+ * @param[out]  value   - counter value
+*/
+MFRC522::StatusCode MFRC522::NTAG_21x_Write(byte address, byte *buffer) {
+
+} // End NTAG_21x_Write() 
+
+/**
+ * COMPATIBILITY_WRITE for NTAG21x.
+ * 
+ * @param[in]   address - NFC counter address
+ * @param[out]  value   - counter value
+*/
+MFRC522::StatusCode MFRC522::NTAG_21x_CompWrite(byte address, byte *buffer) {
+
+} // End NTAG_21x_CompWrite() 
+
+/**
+ * READ_CNT for NTAG21x.
+ * 
+ * @param[in]   address - NFC counter address
+ * @param[out]  value   - counter value
+*/
+MFRC522::StatusCode MFRC522::NTAG_21x_ReadCounter(byte address, byte *value) {
+
+} // End NTAG_21x_ReadCounter() 
+
+/**
+ * PWD_AUTH for NTAG21x.
+ * 
+ * @param[in]   password - password
+ * @param[out]  pack     - password authentication acknowledge, 2 byte.
+*/
+MFRC522::StatusCode MFRC522::NTAG_21x_PasswordAuth(byte *password, byte *pack) {
+
+} // End NTAG_21x_PasswordAuth() 
+
+/**
+ * READ_SIG for NTAG21x.
+ * 
+ * @param[out]     buffer      - the buffer to store signature
+ * @param[in/out]  bufferSize  - buffer size, at least 32 byte
+*/
+MFRC522::StatusCode MFRC522::NTAG_21x_ReadSignature(byte *buffer, byte *bufferSize) {
+	//
+	if (*bufferSize < 32) {
+    	return STATUS_NO_ROOM;
+    }
+
+    //
+	MFRC522::StatusCode result;
+    byte cmdBuffer[3];
+
+    cmdBuffer[0] = PICC_CMD_NTAG_21x_READ_SIG;
+    result = PCD_CalculateCRC(cmdBuffer, 1, &cmdBuffer[1]);
+    if (result != STATUS_OK) {
+        return result;
+    }
+
+    result = PCD_TransceiveData(cmdBuffer, 3, buffer, bufferSize, NULL);
+    if (result != STATUS_OK) {
+        return result;
+    }
+
+    if (*bufferSize != 32) {
+        return STATUS_ERROR;
+    }
+
+    return STATUS_OK;
+} // End NTAG_21x_ReadSignature() 
 
 /////////////////////////////////////////////////////////////////////////////////////
 // Support functions
@@ -1688,7 +1793,7 @@ void MFRC522::PICC_DumpMifareUltralightToSerial() {
 /**
  * Dumps NTAG version info
  */
-void MFRC522::PICC_DumpNTAGVersionToSerial(NTAG_Version* version) {
+void MFRC522::PICC_DumpNTAGVersionToSerial(NTAG_21x_Version* version) {
     Serial.println(F("NTAG"));
 
     Serial.print(F("Vendor ID: ")); 

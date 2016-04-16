@@ -268,8 +268,15 @@ public:
 		// The PICC_CMD_MF_READ and PICC_CMD_MF_WRITE can also be used for MIFARE Ultralight.
 		PICC_CMD_UL_WRITE		= 0xA2,		// Writes one 4 byte page to the PICC.
 
-        // NTAG commands
-        PICC_CMD_NTAG_GET_VERSION = 0x60   // Retrieve information on the NTAG family
+        // NTAG 21x commands (http://cache.nxp.com/documents/data_sheet/NTAG213_215_216.pdf)
+        PICC_CMD_NTAG_21x_GET_VERSION   = 0x60, // Retrieve information on the NTAG family
+        PICC_CMD_NTAG_21x_READ          = 0x30, // Read from start page 16 bytes(four NTAG21x pages)
+        PICC_CMD_NTAG_21x_FAST_READ     = 0x3A, // Read from start page to end page inclusive
+        PICC_CMD_NTAG_21x_WRITE         = 0xA2, // Wrtie 4 bytes into the specified page
+        PICC_CMD_NTAG_21x_COMP_WRITE    = 0xA0, // Write 16 bytes into the specified address (Even though 16 bytes are transferred to NTAG21x, only the least significant 4 bytes)
+        PICC_CMD_NTAG_21x_READ_CNT      = 0x39, // Read NFC one-way counter
+        PICC_CMD_NTAG_21x_PWD_AUTH      = 0x1B, // A protected memory area can be accessed only after a successful password verification
+        PICC_CMD_NTAG_21x_READ_SIG      = 0x3C  // Returns an IC specific, 32-byte ECC signature, to verify NXP Semiconductors as the silicon vendor.
 	};
 
 	// MIFARE constants that does not fit anywhere else
@@ -327,7 +334,7 @@ public:
         byte productVersionMinor;
         byte storageSize;
         byte protocolType;
-    } NTAG_Version;
+    } NTAG_21x_Version;
 
 	// Member variables
 	Uid uid;								// Used by PICC_ReadCardSerial().
@@ -394,10 +401,17 @@ public:
 	StatusCode PCD_NTAG216_AUTH(byte *passWord, byte pACK[]);
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // Functions for communicating with NTAG PICCs
+    // Functions for communicating with NTAG 21x PICCs
     /////////////////////////////////////////////////////////////////////////////////////
-    StatusCode NTAG_GetVersion(NTAG_Version* version);
-	
+    StatusCode NTAG_21x_GetVersion(NTAG_21x_Version* version);
+    StatusCode NTAG_21x_Read(byte blockAddr, byte *buffer, byte *bufferSize);
+    StatusCode NTAG_21x_FastRead(byte startAddr, byte endAddr, byte *buffer, byte *bufferSize);
+    StatusCode NTAG_21x_Write(byte address, byte *buffer);
+    StatusCode NTAG_21x_CompWrite(byte address, byte *buffer);
+    StatusCode NTAG_21x_ReadCounter(byte address, byte *value);
+    StatusCode NTAG_21x_PasswordAuth(byte *password, byte *pack);
+    StatusCode NTAG_21x_ReadSignature(byte *buffer, byte *bufferSize);
+
 	/////////////////////////////////////////////////////////////////////////////////////
 	// Support functions
 	/////////////////////////////////////////////////////////////////////////////////////
@@ -418,7 +432,7 @@ public:
 	void PICC_DumpMifareClassicToSerial(Uid *uid, PICC_Type piccType, MIFARE_Key *key);
 	void PICC_DumpMifareClassicSectorToSerial(Uid *uid, MIFARE_Key *key, byte sector);
 	void PICC_DumpMifareUltralightToSerial();
-    void PICC_DumpNTAGVersionToSerial(NTAG_Version* version);
+    void PICC_DumpNTAGVersionToSerial(NTAG_21x_Version* version);
 
 	// Advanced functions for MIFARE
 	void MIFARE_SetAccessBits(byte *accessBitBuffer, byte g0, byte g1, byte g2, byte g3);
