@@ -1236,19 +1236,47 @@ MFRC522::StatusCode MFRC522::NTAG_21x_Read(byte blockAddr, byte *buffer, byte *b
 /**
  * FAST_READ for NTAG21x.
  * 
- * Note: just a wrapper over MIFARE_Read
+ * TODO: Getting error when reading more than 15 pages with Fudan Semiconductor FM17522 chip.
  *
- * @param[in]      blockAddr   ?
+ * @param[in]      startAddr   - start page address
+ * @param[in]      endAddr     - end page address
  * @param[out]     buffer      - the buffer to store signature
- * @param[in/out]  bufferSize  - Buffer size, at least 32 byte
+ * @param[in/out]  bufferSize  - Buffer size, at least (endAddr - startAddr + 1) * 4 + 2  // 2 byte(CRC)
  *  
  * @return STATUS_OK on success, STATUS_??? otherwise.
  */
 MFRC522::StatusCode MFRC522::NTAG_21x_FastRead(byte startAddr, byte endAddr, byte *buffer, byte *bufferSize) {
+    //
+    if (*bufferSize < (endAddr - startAddr + 1) * 4 + 2) {
+        return STATUS_NO_ROOM;
+    }
+
+    //
+    MFRC522::StatusCode result;
+    byte cmdBuffer[5];
+
+    cmdBuffer[0] = PICC_CMD_NTAG_21x_FAST_READ;
+    cmdBuffer[1] = startAddr;
+    cmdBuffer[2] = endAddr;
+    result = PCD_CalculateCRC(cmdBuffer, 3, &cmdBuffer[3]);
+    if (result != STATUS_OK) {
+        return result;
+    }
+
+    result = PCD_TransceiveData(cmdBuffer, 5, buffer, bufferSize, NULL);
+    if (result != STATUS_OK) {
+        return result;
+    }
+
+    if (*bufferSize != (endAddr - startAddr + 1) * 4 + 2) {
+        return STATUS_ERROR;
+    }
+
+    return STATUS_OK;
 } // End NTAG_21x_FastRead()
 
 /**
- * COMPATIBILITY_WRITE for NTAG21x.
+ * WRITE for NTAG21x.
  * 
  * @param[in]   address - NFC counter address
  * @param[out]  value   - counter value
