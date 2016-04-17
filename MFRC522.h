@@ -284,6 +284,15 @@ public:
 		MF_ACK					= 0xA,		// The MIFARE Classic uses a 4 bit ACK/NAK. Any other value than 0xA is NAK.
 		MF_KEY_SIZE				= 6			// A Mifare Crypto1 key is 6 bytes.
 	};
+
+	// NTAG 21x ACK and NAK (http://cache.nxp.com/documents/data_sheet/NTAG213_215_216.pdf)
+	enum NTAG_21x_NAK {
+		NTAG_21x_NAK_ACK 					= 0xA,
+		NTAG_21x_NAK_INVALID_ARG 			= 0x0,
+		NTAG_21x_NAK_PAIRITY_OR_CRC 		= 0x1,
+		NTAG_21x_NAK_AUTH_COUNTER_OVERFLOW 	= 0x4,
+		NTAG_21x_NAK_EEPROM_ERROR           = 0x5,
+	};
 	
 	// PICC types we can detect. Remember to update PICC_GetTypeName() if you add more.
 	// last value set to 0xff, then compiler uses less ram, it seems some optimisations are triggered
@@ -311,6 +320,7 @@ public:
 		STATUS_INTERNAL_ERROR	,	// Internal error in the code. Should not happen ;-)
 		STATUS_INVALID			,	// Invalid argument.
 		STATUS_CRC_WRONG		,	// The CRC_A does not match
+        STATUS_EEPROM_ERROR     ,   // Error with internal EEPROM.
 		STATUS_MIFARE_NACK		= 0xff	// A MIFARE PICC responded with NAK.
 	};
 	
@@ -335,6 +345,13 @@ public:
         byte storageSize;
         byte protocolType;
     } NTAG_21x_Version;
+
+    enum NTAG_21x_Type: byte {
+    	NTAG_21x_UNKNWON,
+    	NTAG_213,
+    	NTAG_215,
+    	NTAG_216
+    };
 
 	// Member variables
 	Uid uid;								// Used by PICC_ReadCardSerial().
@@ -411,6 +428,14 @@ public:
     StatusCode NTAG_21x_ReadCounter(byte address, byte *value);
     StatusCode NTAG_21x_PasswordAuth(byte *password, byte *pack);
     StatusCode NTAG_21x_ReadSignature(byte *buffer, byte *bufferSize);
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // Support functions for NTAG 21x PICCs
+    /////////////////////////////////////////////////////////////////////////////////////
+    StatusCode NTAG21x_TransceiveData(byte *sendData, byte sendLen, byte *backData, byte *backLen);
+
+    StatusCode NTAG_21x_AddPasswordProtect(byte *password, byte *pack, NTAG_21x_Type type);
+    StatusCode NTAG_21x_RemovePasswordProtect(NTAG_21x_Type type);
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	// Support functions

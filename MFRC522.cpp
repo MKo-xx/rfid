@@ -1198,7 +1198,7 @@ MFRC522::StatusCode MFRC522::NTAG_21x_GetVersion(NTAG_21x_Version* version) {
 
     byte resultBuffer[10]; 
     byte resultBufferLen = 10;
-    result = PCD_TransceiveData(cmdBuffer, 3, resultBuffer, &resultBufferLen, NULL);
+    result = PCD_TransceiveData(cmdBuffer, 3, resultBuffer, &resultBufferLen, NULL, 0, true);
     if (result != STATUS_OK) {
         return result;
     }
@@ -1263,7 +1263,7 @@ MFRC522::StatusCode MFRC522::NTAG_21x_FastRead(byte startAddr, byte endAddr, byt
         return result;
     }
 
-    result = PCD_TransceiveData(cmdBuffer, 5, buffer, bufferSize, NULL);
+    result = PCD_TransceiveData(cmdBuffer, 5, buffer, bufferSize, NULL, 0, true);
     if (result != STATUS_OK) {
         return result;
     }
@@ -1278,11 +1278,11 @@ MFRC522::StatusCode MFRC522::NTAG_21x_FastRead(byte startAddr, byte endAddr, byt
 /**
  * WRITE for NTAG21x.
  * 
- * @param[in]   address - NFC counter address
- * @param[out]  value   - counter value
+ * @param[in]   address - page address
+ * @param[out]  buffer  - page data - 4 bytes
 */
 MFRC522::StatusCode MFRC522::NTAG_21x_Write(byte address, byte *buffer) {
-	//
+    //
     MFRC522::StatusCode result;
     byte cmdBuffer[8];
 
@@ -1294,22 +1294,19 @@ MFRC522::StatusCode MFRC522::NTAG_21x_Write(byte address, byte *buffer) {
         return result;
     }
 
-    result = PCD_TransceiveData(cmdBuffer, 8, NULL, NULL, NULL);
-    if (result != STATUS_OK) {
-        return result;
-    }
-
-    return STATUS_OK;
+    return NTAG21x_TransceiveData(cmdBuffer, 8, NULL, NULL);
 } // End NTAG_21x_Write() 
 
 /**
  * COMPATIBILITY_WRITE for NTAG21x.
  * 
- * @param[in]   address - NFC counter address
- * @param[out]  value   - counter value
+ * Note: just a wrapper over MIFARE_Write
+ *
+ * @param[in]   address - start page address
+ * @param[out]  buffer  - data
 */
 MFRC522::StatusCode MFRC522::NTAG_21x_CompWrite(byte address, byte *buffer) {
-
+    return MIFARE_Write(address, buffer, 16);
 } // End NTAG_21x_CompWrite() 
 
 /**
@@ -1329,7 +1326,19 @@ MFRC522::StatusCode MFRC522::NTAG_21x_ReadCounter(byte address, byte *value) {
  * @param[out]  pack     - password authentication acknowledge, 2 byte.
 */
 MFRC522::StatusCode MFRC522::NTAG_21x_PasswordAuth(byte *password, byte *pack) {
+    //
+    MFRC522::StatusCode result;
+    byte cmdBuffer[7];
 
+    cmdBuffer[0] = PICC_CMD_NTAG_21x_PWD_AUTH;
+    memcpy(&cmdBuffer[1], password, 4);
+    result = PCD_CalculateCRC(cmdBuffer, 5, &cmdBuffer[5]);
+    if (result != STATUS_OK) {
+        return result;
+    }
+
+    byte packSize;
+    return NTAG21x_TransceiveData(cmdBuffer, 7, pack, &packSize);
 } // End NTAG_21x_PasswordAuth() 
 
 /**
@@ -1339,9 +1348,9 @@ MFRC522::StatusCode MFRC522::NTAG_21x_PasswordAuth(byte *password, byte *pack) {
  * @param[in/out]  bufferSize  - buffer size, at least 32 byte
 */
 MFRC522::StatusCode MFRC522::NTAG_21x_ReadSignature(byte *buffer, byte *bufferSize) {
-	//
-	if (*bufferSize < 32) {
-    	return STATUS_NO_ROOM;
+    //
+    if (*bufferSize < 32) {
+        return STATUS_NO_ROOM;
     }
 
     //
@@ -1354,7 +1363,7 @@ MFRC522::StatusCode MFRC522::NTAG_21x_ReadSignature(byte *buffer, byte *bufferSi
         return result;
     }
 
-    result = PCD_TransceiveData(cmdBuffer, 3, buffer, bufferSize, NULL);
+    result = PCD_TransceiveData(cmdBuffer, 3, buffer, bufferSize, NULL, 0, true);
     if (result != STATUS_OK) {
         return result;
     }
@@ -1365,6 +1374,155 @@ MFRC522::StatusCode MFRC522::NTAG_21x_ReadSignature(byte *buffer, byte *bufferSi
 
     return STATUS_OK;
 } // End NTAG_21x_ReadSignature() 
+
+/////////////////////////////////////////////////////////////////////////////////////
+// Support functions for NTAG 21x PICCs
+/////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Wrapper over PCD_TransceiveData + handle NAK responses.
+ * 
+ * @param[out]     buffer      - the buffer to store signature
+ * @param[in/out]  bufferSize  - buffer size, at least 32 byte
+*/
+MFRC522::StatusCode MFRC522::NTAG21x_TransceiveData(byte *sendData, byte sendLen, byte *backData, byte *backLen) {
+    //
+    MFRC522::StatusCode result;
+    byte backDataBuffer[10];
+    byte backDataBufferSize = 10;
+
+    if (backData == NULL) {
+        result = PCD_TransceiveData(sendData, sendLen, backDataBuffer, &backDataBufferSize, NULL, 0, true);
+    } else {
+        result = PCD_TransceiveData(sendData, sendLen, backData, backLen, NULL, 0, true);
+    }
+
+    if (result != STATUS_MIFARE_NACK) {
+        return result;
+    }
+
+    switch (backDataBuffer[0]) {
+        case NTAG_21x_NAK_ACK:
+            return STATUS_OK;
+            break;
+        case NTAG_21x_NAK_INVALID_ARG:
+            return STATUS_INVALID;
+            break;
+        case NTAG_21x_NAK_PAIRITY_OR_CRC:
+            return STATUS_CRC_WRONG;
+            break;
+        case NTAG_21x_NAK_AUTH_COUNTER_OVERFLOW:
+            return STATUS_ERROR;
+            break;
+        case NTAG_21x_NAK_EEPROM_ERROR:
+            return STATUS_EEPROM_ERROR;
+            break;
+        default:
+            return STATUS_ERROR;
+            break;
+    }
+
+    return STATUS_OK;
+}
+
+/**
+ * Add password protection for NTAG21x.
+ * 
+ * @param[in]  password - password, 4 byte
+ * @param[in]  pack     - password authentication acknowledge, 2 byte
+ * @param[in]  type     - NTAG_21x type
+*/
+MFRC522::StatusCode MFRC522::NTAG_21x_AddPasswordProtect(byte *password, byte *pack, NTAG_21x_Type type) {
+	byte pwd_page;
+	byte pack_page;
+	byte auth0_page;
+	switch (type) {
+		case NTAG_213:
+			pwd_page = 0x2B;
+			pack_page = 0x2C;
+			auth0_page = 0x29;
+			break;
+		case NTAG_215:
+			pwd_page = 0x85;
+			pack_page = 0x86;
+			auth0_page = 0x83;
+			break;
+		case NTAG_216:
+			pwd_page = 0xE5;
+			pack_page = 0xE6;
+			auth0_page = 0xE3;
+			break;
+		default:
+			return STATUS_ERROR;
+	}
+
+	//
+	MFRC522::StatusCode result;
+	result = NTAG_21x_Write(pwd_page, password);
+	if (result != STATUS_OK) {
+        return result;
+    }
+
+    //
+    byte buffer[6];
+    memcpy(buffer, pack, 2);
+    buffer[2] = 0x00;
+    buffer[3] = 0x00;
+	result = NTAG_21x_Write(pack_page, buffer);
+	if (result != STATUS_OK) {
+        return result;
+    }
+
+	// Read page which contains AUTH0, modify AUTH0 and write back
+	byte bufferSize = 6; // 4 + 2(CRC)
+	result = NTAG_21x_FastRead(auth0_page, auth0_page, buffer, &bufferSize);
+	if (result != STATUS_OK) {
+        return result;
+    }
+
+    buffer[3] = 0x00;
+	result = NTAG_21x_Write(auth0_page, buffer);	
+	if (result != STATUS_OK) {
+        return result;
+    }
+} // End NTAG_21x_PasswordProtect()
+
+/**
+ * Add password protection for NTAG21x.
+ * 
+ * @param[in]  type     - NTAG_21x type
+*/
+MFRC522::StatusCode MFRC522::NTAG_21x_RemovePasswordProtect(NTAG_21x_Type type) {
+    byte auth0_page;
+    switch (type) {
+        case NTAG_213:
+            auth0_page = 0x29;
+            break;
+        case NTAG_215:
+            auth0_page = 0x83;
+            break;
+        case NTAG_216:
+            auth0_page = 0xE3;
+            break;
+        default:
+            return STATUS_ERROR;
+    }
+
+    // Read page which contains AUTH0, modify AUTH0 and write back
+    MFRC522::StatusCode result;
+    byte buffer[6];
+    byte bufferSize = 6; // 4 + 2(CRC)
+    result = NTAG_21x_FastRead(auth0_page, auth0_page, buffer, &bufferSize);
+    if (result != STATUS_OK) {
+        return result;
+    }
+
+    buffer[3] = 0xFF;
+    result = NTAG_21x_Write(auth0_page, buffer);    
+    if (result != STATUS_OK) {
+        return result;
+    }
+} // End NTAG_21x_RemovePasswordProtect()
 
 /////////////////////////////////////////////////////////////////////////////////////
 // Support functions
@@ -1433,6 +1591,7 @@ const __FlashStringHelper *MFRC522::GetStatusCodeName(MFRC522::StatusCode code	/
 		case STATUS_INTERNAL_ERROR:	return F("Internal error in the code. Should not happen.");
 		case STATUS_INVALID:		return F("Invalid argument.");
 		case STATUS_CRC_WRONG:		return F("The CRC_A does not match.");
+        case STATUS_EEPROM_ERROR:   return F("Error with internal EEPROM.");
 		case STATUS_MIFARE_NACK:	return F("A MIFARE PICC responded with NAK.");
 		default:					return F("Unknown error");
 	}
